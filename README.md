@@ -2,6 +2,9 @@
 A fullstack message processing system built with Node.js, RabbitMQ, Redis, MongoDB, WebSocket, and React.
 This project demonstrates reliable async processing, retry handling, DLQ, idempotency, and real-time UI updates
 
+![Untitled Diagram](https://github.com/user-attachments/assets/d1429084-4c2d-4e1d-9a55-78c302cffa2e)
+
+
 ## Features
 - Asynchronous message processing using RabbitMQ
 - Automatic retries with delay (retry queue)
