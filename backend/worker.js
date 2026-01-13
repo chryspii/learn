@@ -54,13 +54,49 @@ channel.prefetch(1);
 console.log("Worker running with retry + DLQ");
 
 channel.consume("messages", async msg => {
-  const { id, retries = 0 } = JSON.parse(msg.content.toString());
+  if (!msg) {
+    console.warn("Consumer cancelled");
+    return;
+  }
+
+  let payload;
 
   try {
-    await Message.findByIdAndUpdate(id, {
-      status: "stored",
-      retries
-    });
+    payload = JSON.parse(msg.content.toString());
+  } catch (e) {
+    console.error("Invalid JSON");
+    channel.nack(msg, false, false);
+
+    return;
+  }
+
+  const { id, retries = 0 } = payload;
+
+  try {
+    const firstTime = await redis.set(`processed:${id}`, "1", "NX", "EX", 3600);
+
+    if (!firstTime) {
+      console.log(`Message ${id} already processed, skipping`);
+      channel.ack(msg);
+      return;
+    }
+
+    if (process.env.NODE_ENV !== "production") {
+      const random = Math.random()
+      console.log(random)
+      if (random < 0.3) {
+        throw new Error("Random failure");
+      }
+    }
+
+    await Message.findByIdAndUpdate(
+      id,
+      {
+        status: "stored",
+        retries
+      },
+      { upsert: true }
+    );
 
     await redis.set(`message:${id}`, "stored");
     await redis.publish(
@@ -69,7 +105,9 @@ channel.consume("messages", async msg => {
     );
 
     channel.ack(msg);
-  } catch {
+  } catch (err) {
+    console.error("Worker error:", err);
+  
     if (retries >= MAX_RETRIES) {
       await Message.findByIdAndUpdate(id, {
         status: "failed",
@@ -99,10 +137,15 @@ channel.consume("messages", async msg => {
       { persistent: true }
     );
 
-    await Message.findByIdAndUpdate(id, {
-      status: "retrying",
-      retries: retries + 1
-    });
+    const nextRetries = retries + 1
+    await Message.findByIdAndUpdate(
+      id,
+      {
+        status: "retrying",
+        retries: nextRetries
+      },
+      { upsert: true }
+    );
 
     await redis.set(`message:${id}`, "retrying");
     await redis.publish(
@@ -110,8 +153,14 @@ channel.consume("messages", async msg => {
       JSON.stringify({
         type: "MESSAGE_RETRY",
         id,
-        retries: retries + 1
       })
+    );
+
+    channel.publish(
+      "messages.dlx",
+      "retry",
+      Buffer.from(JSON.stringify({ id, retries: nextRetries })),
+      { persistent: true }
     );
 
     channel.ack(msg);
