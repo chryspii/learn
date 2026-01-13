@@ -10,11 +10,13 @@
   },
   "scripts": {
     "dev": "nodemon index.js & nodemon worker.js",
-    "dev-debug": "cross-env NODE_ENV=development nodemon --inspect index.js",
-    "dev-queue": "cross-env NODE_ENV=development nodemon worker.js"
+    "dev-debug": "cross-env NODE_ENV=development nodemon --inspect --exec tsx src/index.ts",
+    "dev-queue": "cross-env NODE_ENV=development nodemon --exec tsx src/worker.ts"
   },
   "devDependencies": {
     "cross-env": "^10.1.0",
-    "nodemon": "^3.1.11"
+    "nodemon": "^3.1.11",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
   }
 }
