@@ -1,28 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 
-type Status = "queued" | "retrying" | "stored" | "failed";
-
 type Message = {
   _id: string;
   name: string;
   subject: string;
   message: string;
-  status: Status;
-};
-
-const statusStyle = (status: string) => {
-  switch (status) {
-    case "queued":
-      return "bg-gray-200 text-gray-800";
-    case "retrying":
-      return "bg-yellow-200 text-yellow-800 animate-pulse";
-    case "stored":
-      return "bg-green-200 text-green-800";
-    case "failed":
-      return "bg-red-200 text-red-800";
-    default:
-      return "bg-gray-100";
-  }
+  status: "queued" | "retrying" | "stored" | "failed";
+  retries: number;
 };
 
 const API = "http://localhost:3001";
@@ -30,14 +14,27 @@ const WS = "ws://localhost:8080";
 
 export default function App() {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [form, setForm] = useState({ name: "", subject: "", message: "" });
+  const [dlq, setDlq] = useState<Message[]>([]);
+  const [form, setForm] = useState({
+    name: "",
+    subject: "",
+    message: ""
+  });
   const wsRef = useRef<WebSocket | null>(null);
 
-  useEffect(() => {
-    fetch(`${API}/messages`).then(r => r.json()).then(setMessages);
-  }, []);
+  const fetchMessages = async () => {
+    const res = await fetch(`${API}/messages`);
+    const data = await res.json();
+    setMessages(data)
+  }
 
-  useEffect(() => {
+  const fetchDLQ = async () => {
+    const res = await fetch(`${API}/dlq`);
+    const data = await res.json();
+    setDlq(data);
+  };
+
+  const connectWebSocket = async () => {
     let ws: WebSocket;
     let retry: number;
 
@@ -72,6 +69,13 @@ export default function App() {
       clearTimeout(retry);
       ws?.close();
     };
+  }
+
+  useEffect(() => {
+    fetchMessages();
+    // fetchDLQ();
+
+    connectWebSocket();
   }, []);
 
   const submit = async () => {
@@ -91,6 +95,29 @@ export default function App() {
     setMessages(prev => prev.filter(m => m._id !== id));
   };
 
+  const reprocess = async (id: string) => {
+    await fetch(`${API}/dlq/${id}/reprocess`, {
+      method: "POST"
+    });
+
+    fetchDLQ();
+  };
+
+  const statusStyle = (status: string) => {
+    switch (status) {
+      case "queued":
+        return "bg-gray-200 text-gray-800";
+      case "retrying":
+        return "bg-yellow-200 text-yellow-800 animate-pulse";
+      case "stored":
+        return "bg-green-200 text-green-800";
+      case "failed":
+        return "bg-red-200 text-red-800";
+      default:
+        return "bg-gray-100";
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-6 max-w-3xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">Message Queue Demo</h1>
@@ -107,6 +134,7 @@ export default function App() {
         </button>
       </div>
 
+      <h3>Messages</h3>
       {messages.map(m => (
         <div key={m._id} className="bg-white p-4 rounded shadow mb-3">
           <div className="flex justify-between">
@@ -117,6 +145,16 @@ export default function App() {
               >
                 {m.status.toUpperCase()}
               </span>
+              
+              {m.status === "failed" && (
+                <button
+                  onClick={() => reprocess(m._id)}
+                  className="bg-blue-600 text-white px-2 py-1 text-xs rounded font-semibold hover:bg-blue-700"
+                >
+                  Reprocess
+                </button>
+              )}
+              
               <button
                 onClick={() => del(m._id)}
                 className={`text-xs text-red-600 hover:underline`}

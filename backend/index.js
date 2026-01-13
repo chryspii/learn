@@ -94,4 +94,44 @@ app.delete("/messages/:id", async (req, res) => {
   res.json({ success: true });
 });
 
+app.get("/dlq", async (_req, res) => {
+  const failed = await Message.find({ status: "failed" }).sort({ updatedAt: -1 });
+  res.json(failed);
+});
+
+app.post("/dlq/:id/reprocess", async (req, res) => {
+  const { id } = req.params;
+
+  const msg = await Message.findById(id);
+  if (!msg) {
+    return res.status(404).json({ error: "Message not found" });
+  }
+
+  // Reset DB state
+  msg.status = "queued";
+  msg.retries = 0;
+  await msg.save();
+
+  // Remove idempotency lock
+  await redis.del(`processed:${id}`);
+
+  // Publish back to main queue
+  channel.sendToQueue(
+    "messages",
+    Buffer.from(JSON.stringify({ id, retries: 0 })),
+    { persistent: true }
+  );
+
+  // Notify UI
+  await redis.publish(
+    "message-status",
+    JSON.stringify({
+      type: "MESSAGE_REQUEUED",
+      id
+    })
+  );
+
+  res.json({ success: true });
+});
+
 app.listen(3001, () => console.log("API running on :3001"));
