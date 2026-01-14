@@ -3,6 +3,7 @@
   "type": "module",
   "dependencies": {
     "amqplib": "^0.10.3",
+    "dotenv": "^17.2.3",
     "express": "^4.19.2",
     "mongoose": "^8.0.0",
     "redis": "^4.6.13",
@@ -19,7 +20,9 @@
   },
   "devDependencies": {
     "@types/chai": "^5.2.3",
+    "@types/express": "^5.0.6",
     "@types/mocha": "^10.0.10",
+    "@types/node": "^25.0.8",
     "chai": "^6.2.2",
     "cross-env": "^10.1.0",
     "mocha": "^11.7.5",

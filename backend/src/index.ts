@@ -1,3 +1,8 @@
+import "./config/loadEnv.js";
+import { validateEnv } from "./config/validateEnv.js";
+
+validateEnv();
+
 import express from "express";
 import { Mongo } from "./servers/Mongo.js";
 import { RedisClient } from "./servers/RedisClient.js";
