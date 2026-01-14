@@ -31,6 +31,11 @@ services:
 
   mongo:
     image: mongo:7
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASS}
+      MONGO_INITDB_DATABASE: messages
     volumes:
       - mongo_data:/data/db
     ports:
@@ -38,11 +43,15 @@ services:
 
   redis:
     image: redis:7
+    command: ["redis-server", "--requirepass", "${REDIS_PASS}"]
     ports:
       - "6379:6379"
 
   rabbitmq:
     image: rabbitmq:3-management
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBIT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_PASS}
     ports:
       - "5672:5672"
       - "15672:15672"
