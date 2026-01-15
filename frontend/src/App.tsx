@@ -10,9 +10,10 @@ type Message = {
 };
 
 const host = window.location.hostname;
+const protocol = window.location.protocol.startsWith("https") ? "https" : "http";
 
-const API = `http://${host}:3001`;
-const WS  = `ws://${host}:8080`;
+const API = `${protocol}://${host}:3001`;
+const WS = `${protocol === "https" ? "wss" : "ws"}://${host}:8080`;
 
 export default function App() {
   const [messages, setMessages] = useState<Message[]>([]);
